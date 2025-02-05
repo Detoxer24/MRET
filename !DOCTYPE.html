@@ -77,7 +77,7 @@
             }
         }
 
-        function fetchPricing() {
+        /*function fetchPricing() {
             database.ref("/companyPricing").once("value").then((snapshot) => {
                 if (snapshot.exists()) {
                     document.getElementById("pricing").innerText = `Pricing: ${snapshot.val().price} USD`;
