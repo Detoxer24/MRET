@@ -29,14 +29,17 @@
     let switchElement = document.getElementById("switch");
     let status = switchElement.classList.contains("on") ? "OFF" : "ON";
 
-    console.log(`Changing pump status to: ${status}`); // Log status for debugging
+    // Instant UI Update
+    switchElement.classList.toggle("on");  
 
     // Update Firebase
-    database.ref("/pumpStatus").set({ status: status }).then(() => {
-        console.log('Firebase status updated');
+    database.ref("/pumpStatus").set({ status }).then(() => {
+        console.log(`Pump status updated to: ${status}`);
     }).catch((error) => {
-        console.error('Error updating Firebase:', error);
+        console.error("Error updating Firebase:", error);
     });
+}
+
 
     // Toggle Switch UI
     switchElement.classList.toggle("on");
