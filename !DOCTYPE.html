@@ -50,9 +50,14 @@
             // Update Firebase
             database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).then(() => {
                 console.log(`Pump status updated to: ${newStatus}`);
+                logPumpStatus(newStatus, timestamp);
             }).catch((error) => {
                 console.error("Error updating Firebase:", error);
             });
+        }
+
+        function logPumpStatus(status, timestamp) {
+            database.ref("/pumpLogs").push({ status: status, timestamp: timestamp });
         }
 
         function updateUI(snapshot) {
@@ -72,7 +77,6 @@
             }
         }
 
-        // Fetch pricing from Firebase
         function fetchPricing() {
             database.ref("/companyPricing").once("value").then((snapshot) => {
                 if (snapshot.exists()) {
@@ -85,11 +89,16 @@
             });
         }
 
-        // Fetch pump analytics
         function fetchAnalytics() {
-            database.ref("/pumpLogs").once("value").then((snapshot) => {
+            let now = Date.now();
+            let midnight = new Date();
+            midnight.setHours(0, 0, 0, 0);
+            let startOfDay = midnight.getTime();
+
+            database.ref("/pumpLogs").orderByChild("timestamp").startAt(startOfDay).once("value").then((snapshot) => {
                 let totalOnTime = 0;
                 let lastOnTimestamp = null;
+
                 snapshot.forEach(entry => {
                     let data = entry.val();
                     if (data.status === "ON") {
@@ -99,6 +108,7 @@
                         lastOnTimestamp = null;
                     }
                 });
+
                 let waterUsed = totalOnTime * 10; // Assuming 10L per minute
                 document.getElementById("analytics").innerText = `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L`;
             }).catch((error) => {
@@ -106,9 +116,8 @@
             });
         }
 
-        setInterval(fetchAnalytics, 300000); // Update analytics every 5 minutes
+        setInterval(fetchAnalytics, 60000); // Update analytics every minute
 
-        // Listen for real-time Firebase changes
         database.ref("/pumpStatus").on("value", updateUI);
         window.onload = () => {
             fetchPricing();
@@ -132,7 +141,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 70vh;
+            height: 65vh;
         }
 
         .switch-box {
