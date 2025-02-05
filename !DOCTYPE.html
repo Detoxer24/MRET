@@ -25,16 +25,22 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        function togglePump() {
-            let switchElement = document.getElementById("switch");
-            let status = switchElement.classList.contains("on") ? "OFF" : "ON";
+       function togglePump() {
+    let switchElement = document.getElementById("switch");
+    let status = switchElement.classList.contains("on") ? "OFF" : "ON";
 
-            // Update Firebase
-            database.ref("/pumpStatus").set({ status: status });
+    console.log(`Changing pump status to: ${status}`); // Log status for debugging
 
-            // Toggle Switch UI
-            switchElement.classList.toggle("on");
-        }
+    // Update Firebase
+    database.ref("/pumpStatus").set({ status: status }).then(() => {
+        console.log('Firebase status updated');
+    }).catch((error) => {
+        console.error('Error updating Firebase:', error);
+    });
+
+    // Toggle Switch UI
+    switchElement.classList.toggle("on");
+}
 
         function updateUI(snapshot) {
             let switchElement = document.getElementById("switch");
