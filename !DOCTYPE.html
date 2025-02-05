@@ -26,18 +26,25 @@
         const database = firebase.database();
 
         function togglePump() {
-            let pumpSwitch = document.getElementById("pumpSwitch");
-            let status = pumpSwitch.checked ? "ON" : "OFF";
+            let switchElement = document.getElementById("switch");
+            let status = switchElement.classList.contains("on") ? "OFF" : "ON";
 
             // Update Firebase
             database.ref("/pumpStatus").set({ status: status });
+
+            // Toggle Switch UI
+            switchElement.classList.toggle("on");
         }
 
         function updateUI(snapshot) {
-            let pumpSwitch = document.getElementById("pumpSwitch");
+            let switchElement = document.getElementById("switch");
             if (snapshot.exists()) {
                 let status = snapshot.val().status;
-                pumpSwitch.checked = (status === "ON");
+                if (status === "ON") {
+                    switchElement.classList.add("on");
+                } else {
+                    switchElement.classList.remove("on");
+                }
             }
         }
 
@@ -50,61 +57,54 @@
             font-family: Arial, sans-serif;
             text-align: center;
             margin-top: 50px;
+            background-color: #f5f5f5;
+        }
+
+        .switch-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .switch-box {
+            width: 100px;
+            height: 200px;
+            background-color: #f0f0f0;
+            border: 3px solid #444;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
         }
 
         .switch {
-            position: relative;
-            display: inline-block;
-            width: 60px;
-            height: 34px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
+            width: 40px;
+            height: 80px;
+            background-color: #ddd;
+            border: 2px solid #333;
+            border-radius: 5px;
             position: absolute;
+            bottom: 20px;
+            transition: all 0.3s ease-in-out;
             cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
         }
 
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 26px;
-            width: 26px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
+        .switch.on {
+            bottom: 100px;
             background-color: #4CAF50;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
         }
     </style>
 </head>
 <body>
     <h2>Pump Control</h2>
 
-    <label class="switch">
-        <input type="checkbox" id="pumpSwitch" onchange="togglePump()">
-        <span class="slider"></span>
-    </label>
+    <div class="switch-container">
+        <div class="switch-box" onclick="togglePump()">
+            <div id="switch" class="switch"></div>
+        </div>
+    </div>
 
 </body>
 </html>
