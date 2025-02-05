@@ -71,17 +71,22 @@
             background-color: #f5f5f5;
         }
 
+        .logo {
+            margin-top: 20px;
+            width: 200px;
+        }
+
         .switch-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 80vh; /* Adjusted to move the switch higher */
+            height: 70vh;
         }
 
         .switch-box {
-            width: 160px; /* Increased width */
-            height: 70px; /* Increased height */
-            background-color: #d9534f; /* Default Red (OFF) */
+            width: 160px;
+            height: 70px;
+            background-color: #d9534f;
             border: 4px solid #444;
             border-radius: 35px;
             display: flex;
@@ -92,12 +97,12 @@
         }
 
         .switch-box.on {
-            background-color: #4CAF50; /* Green for ON */
+            background-color: #4CAF50;
         }
 
         .switch {
-            width: 60px; /* Increased size */
-            height: 60px; /* Increased size */
+            width: 60px;
+            height: 60px;
             background-color: white;
             border: 3px solid #333;
             border-radius: 50%;
@@ -107,11 +112,12 @@
         }
 
         .switch.on {
-            left: 90px; /* Adjusted position for new width */
+            left: 90px;
         }
     </style>
 </head>
 <body>
+    <img src="image_1.png" alt="Company Logo" class="logo">
     <h2>Pump Control</h2>
 
     <div class="switch-container">
@@ -119,6 +125,5 @@
             <div id="switch" class="switch"></div>
         </div>
     </div>
-
 </body>
 </html>
