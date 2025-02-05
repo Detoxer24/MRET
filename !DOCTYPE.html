@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pump Control</title>
+
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <script>
         // Firebase Configuration
         const firebaseConfig = {
@@ -17,7 +20,7 @@
             messagingSenderId: "428090389139",
             appId: "1:428090389139:web:db0c63ecf1860e4e72d366"
         };
-        
+
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
@@ -26,22 +29,82 @@
             let pumpSwitch = document.getElementById("pumpSwitch");
             let status = pumpSwitch.checked ? "ON" : "OFF";
 
+            // Update Firebase
             database.ref("/pumpStatus").set({ status: status });
         }
 
         function updateUI(snapshot) {
             let pumpSwitch = document.getElementById("pumpSwitch");
-            let status = snapshot.val().status;
-            pumpSwitch.checked = (status === "ON");
+            if (snapshot.exists()) {
+                let status = snapshot.val().status;
+                pumpSwitch.checked = (status === "ON");
+            }
         }
 
+        // Listen for changes in Firebase
         database.ref("/pumpStatus").on("value", updateUI);
     </script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
 </head>
 <body>
     <h2>Pump Control</h2>
-    <label>
-        <input type="checkbox" id="pumpSwitch" onchange="togglePump()"> Pump ON/OFF
+
+    <label class="switch">
+        <input type="checkbox" id="pumpSwitch" onchange="togglePump()">
+        <span class="slider"></span>
     </label>
+
 </body>
 </html>
