@@ -25,7 +25,18 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        function checkPassword() {
+            let password = prompt("Enter password to access controls:");
+            if (password !== "2003") {
+                alert("Incorrect password! Access denied.");
+                return false;
+            }
+            return true;
+        }
+
         function togglePump() {
+            if (!checkPassword()) return;
+            
             let switchElement = document.getElementById("switch");
             let switchBox = document.querySelector(".switch-box");
             let isOn = switchElement.classList.contains("on");
@@ -117,7 +128,7 @@
     </style>
 </head>
 <body>
-    <img src="image_1.png" alt="Company Logo" class="logo">
+    <img src="image.png" alt="Company Logo" class="logo">
     <h2>Pump Control</h2>
 
     <div class="switch-container">
