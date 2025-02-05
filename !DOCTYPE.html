@@ -4,31 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pump Control</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
-    <style>
-        body { text-align: center; font-family: Arial, sans-serif; margin-top: 50px; }
-        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
-                  background-color: red; transition: 0.4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px;
-                         background-color: white; transition: 0.4s; border-radius: 50%; }
-        input:checked + .slider { background-color: green; }
-        input:checked + .slider:before { transform: translateX(26px); }
-        #status { font-size: 24px; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <h2>Pump Control System</h2>
-    <label class="switch">
-        <input type="checkbox" id="pumpSwitch">
-        <span class="slider"></span>
-    </label>
-    <p id="status">Current Status: Loading...</p>
-
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
-        // Your Firebase configuration
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCI_jyclRZEKN0dsLRYZ_E5cuZq7024XJI",
             authDomain: "smart-irrigation-c2dcb.firebaseapp.com",
@@ -38,31 +17,31 @@
             messagingSenderId: "428090389139",
             appId: "1:428090389139:web:db0c63ecf1860e4e72d366"
         };
-
+        
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        const pumpSwitch = document.getElementById("pumpSwitch");
-        const statusText = document.getElementById("status");
+        function togglePump() {
+            let pumpSwitch = document.getElementById("pumpSwitch");
+            let status = pumpSwitch.checked ? "ON" : "OFF";
 
-        // Function to update pump status in Firebase
-        pumpSwitch.addEventListener("change", function() {
-            const status = this.checked ? "ON" : "OFF";
             database.ref("/pumpStatus").set({ status: status });
-        });
+        }
 
-        // Listen for status changes and update switch
-        database.ref("/pumpStatus/status").on("value", (snapshot) => {
-            const status = snapshot.val();
-            if (status === "ON") {
-                pumpSwitch.checked = true;
-                statusText.innerText = "Current Status: ON";
-            } else {
-                pumpSwitch.checked = false;
-                statusText.innerText = "Current Status: OFF";
-            }
-        });
+        function updateUI(snapshot) {
+            let pumpSwitch = document.getElementById("pumpSwitch");
+            let status = snapshot.val().status;
+            pumpSwitch.checked = (status === "ON");
+        }
+
+        database.ref("/pumpStatus").on("value", updateUI);
     </script>
+</head>
+<body>
+    <h2>Pump Control</h2>
+    <label>
+        <input type="checkbox" id="pumpSwitch" onchange="togglePump()"> Pump ON/OFF
+    </label>
 </body>
 </html>
