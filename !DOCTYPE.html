@@ -41,13 +41,14 @@
             let switchBox = document.querySelector(".switch-box");
             let isOn = switchElement.classList.contains("on");
             let newStatus = isOn ? "OFF" : "ON";
+            let timestamp = Date.now();
 
             // Instantly update UI
             switchElement.classList.toggle("on");
             switchBox.classList.toggle("on");
 
             // Update Firebase
-            database.ref("/pumpStatus").set({ status: newStatus }).then(() => {
+            database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).then(() => {
                 console.log(`Pump status updated to: ${newStatus}`);
             }).catch((error) => {
                 console.error("Error updating Firebase:", error);
@@ -71,8 +72,48 @@
             }
         }
 
+        // Fetch pricing from Firebase
+        function fetchPricing() {
+            database.ref("/companyPricing").once("value").then((snapshot) => {
+                if (snapshot.exists()) {
+                    document.getElementById("pricing").innerText = `Pricing: ${snapshot.val().price} USD`;
+                } else {
+                    document.getElementById("pricing").innerText = "Pricing data not available.";
+                }
+            }).catch((error) => {
+                console.error("Error fetching pricing:", error);
+            });
+        }
+
+        // Fetch pump analytics
+        function fetchAnalytics() {
+            database.ref("/pumpLogs").once("value").then((snapshot) => {
+                let totalOnTime = 0;
+                let lastOnTimestamp = null;
+                snapshot.forEach(entry => {
+                    let data = entry.val();
+                    if (data.status === "ON") {
+                        lastOnTimestamp = data.timestamp;
+                    } else if (data.status === "OFF" && lastOnTimestamp) {
+                        totalOnTime += (data.timestamp - lastOnTimestamp) / 1000 / 60; // Convert to minutes
+                        lastOnTimestamp = null;
+                    }
+                });
+                let waterUsed = totalOnTime * 10; // Assuming 10L per minute
+                document.getElementById("analytics").innerText = `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L`;
+            }).catch((error) => {
+                console.error("Error fetching analytics:", error);
+            });
+        }
+
+        setInterval(fetchAnalytics, 300000); // Update analytics every 5 minutes
+
         // Listen for real-time Firebase changes
         database.ref("/pumpStatus").on("value", updateUI);
+        window.onload = () => {
+            fetchPricing();
+            fetchAnalytics();
+        };
     </script>
 
     <style>
@@ -130,7 +171,8 @@
 <body>
     <img src="image.png" alt="Company Logo" class="logo">
     <h2>Pump Control</h2>
-
+    <p id="pricing">Fetching pricing...</p>
+    <p id="analytics">Fetching analytics...</p>
     <div class="switch-container">
         <div class="switch-box" onclick="togglePump()">
             <div id="switch" class="switch"></div>
