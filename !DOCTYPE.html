@@ -12,13 +12,18 @@
 
     <script>
         // Firebase Configuration
-       fetch("https://your-server.com/getFirebaseConfig")
-  .then(response => response.json())
-  .then(config => {
-    firebase.initializeApp(config);
-  })
-  .catch(error => console.error("Error fetching Firebase config:", error));
+        const firebaseConfig = {
+            apiKey: "AIzaSyCI_jyclRZEKN0dsLRYZ_E5cuZq7024XJI",
+            authDomain: "smart-irrigation-c2dcb.firebaseapp.com",
+            databaseURL: "https://smart-irrigation-c2dcb-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "smart-irrigation-c2dcb",
+            storageBucket: "smart-irrigation-c2dcb.firebasestorage.app",
+            messagingSenderId: "428090389139",
+            appId: "1:428090389139:web:db0c63ecf1860e4e72d366"
+        };
 
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         const remoteConfig = firebase.remoteConfig();
 
