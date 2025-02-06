@@ -25,10 +25,6 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        let totalOnTime = 0; // Store total time pump was ON
-        let totalWaterUsed = 0; // Store total water used
-        let lastOnTimestamp = null; // Track the time when the pump was last turned on
-
         function checkPassword() {
             let password = prompt("Enter password to access controls:");
             if (password !== "2003") {
@@ -51,39 +47,34 @@
             switchElement.classList.toggle("on");
             switchBox.classList.toggle("on");
 
-            if (newStatus === "ON") {
-                // Reset total time and water used when turned on
-                totalOnTime = 0;
-                totalWaterUsed = 0;
-                lastOnTimestamp = timestamp; // Mark the time when it was turned on
-            } else {
-                // Calculate total ON time and water used when turned off
-                if (lastOnTimestamp) {
-                    totalOnTime += (timestamp - lastOnTimestamp) / 1000 / 60; // Convert to minutes
-                    totalWaterUsed = totalOnTime * 10; // Assuming 10L per minute
-                    lastOnTimestamp = null; // Reset the timestamp after turning off
-                }
-            }
-
             // Update Firebase
             database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).then(() => {
-                console.log(Pump status updated to: ${newStatus});
+                console.log(`Pump status updated to: ${newStatus}`);
                 logPumpStatus(newStatus, timestamp);
             }).catch((error) => {
                 console.error("Error updating Firebase:", error);
             });
-
-            // Update UI analytics immediately
-            updateAnalytics();
         }
 
         function logPumpStatus(status, timestamp) {
             database.ref("/pumpLogs").push({ status: status, timestamp: timestamp });
         }
 
-        function updateAnalytics() {
-            // Display total ON time and water used
-            document.getElementById("analytics").innerText = Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${totalWaterUsed.toFixed(2)} L;
+        function updateUI(snapshot) {
+            let switchElement = document.getElementById("switch");
+            let switchBox = document.querySelector(".switch-box");
+            if (snapshot.exists()) {
+                let status = snapshot.val().status;
+                console.log(`Firebase status received: ${status}`);
+
+                if (status === "ON") {
+                    switchElement.classList.add("on");
+                    switchBox.classList.add("on");
+                } else {
+                    switchElement.classList.remove("on");
+                    switchBox.classList.remove("on");
+                }
+            }
         }
 
         function fetchAnalytics() {
@@ -107,7 +98,7 @@
                 });
 
                 let waterUsed = totalOnTime * 10; // Assuming 10L per minute
-                document.getElementById("analytics").innerText = Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L;
+                document.getElementById("analytics").innerText = `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L`;
             }).catch((error) => {
                 console.error("Error fetching analytics:", error);
             });
@@ -116,23 +107,6 @@
         setInterval(fetchAnalytics, 60000); // Update analytics every minute
         database.ref("/pumpStatus").on("value", updateUI);
         window.onload = fetchAnalytics;
-
-        function updateUI(snapshot) {
-            let switchElement = document.getElementById("switch");
-            let switchBox = document.querySelector(".switch-box");
-            if (snapshot.exists()) {
-                let status = snapshot.val().status;
-                console.log(Firebase status received: ${status});
-
-                if (status === "ON") {
-                    switchElement.classList.add("on");
-                    switchBox.classList.add("on");
-                } else {
-                    switchElement.classList.remove("on");
-                    switchBox.classList.remove("on");
-                }
-            }
-        }
     </script>
 
     <style>
