@@ -5,10 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pump Control</title>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-remote-config.js"></script>
 
     <script>
         // Firebase Configuration
@@ -25,32 +24,6 @@
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        const remoteConfig = firebase.remoteConfig();
-
-        // Fetch remote config values
-        remoteConfig.settings = {
-            minimumFetchIntervalMillis: 3600000, // Cache for 1 hour
-        };
-
-        // Function to fetch remote config
-        function fetchRemoteConfig() {
-            remoteConfig.fetchAndActivate()
-                .then(() => {
-                    const pumpControlPassword = remoteConfig.getValue('pump_control_password').asString();
-
-                    // Store the fetched password securely for control
-                    window.pumpControlPassword = pumpControlPassword;
-                })
-                .catch((error) => {
-                    console.error("Error fetching remote config: ", error); // Only log errors related to fetching config
-                });
-        }
-
-        // Call fetchRemoteConfig on page load
-        window.onload = function () {
-            fetchRemoteConfig();
-            fetchAnalytics(); // Fetch initial analytics
-        };
 
         let totalOnTime = 0; // Store total time pump was ON
         let totalWaterUsed = 0; // Store total water used
@@ -58,7 +31,7 @@
 
         function checkPassword() {
             let password = prompt("Enter password to access controls:");
-            if (password !== window.pumpControlPassword) {
+            if (password !== "2003") {
                 alert("Incorrect password! Access denied.");
                 return false;
             }
@@ -67,7 +40,7 @@
 
         function togglePump() {
             if (!checkPassword()) return;
-
+            
             let switchElement = document.getElementById("switch");
             let switchBox = document.querySelector(".switch-box");
             let isOn = switchElement.classList.contains("on");
@@ -93,8 +66,10 @@
             }
 
             // Update Firebase
-            database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).catch((error) => {
-                // Do not log Firebase credentials, only log errors
+            database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).then(() => {
+                console.log(Pump status updated to: ${newStatus});
+                logPumpStatus(newStatus, timestamp);
+            }).catch((error) => {
                 console.error("Error updating Firebase:", error);
             });
 
@@ -134,19 +109,20 @@
                 let waterUsed = totalOnTime * 10; // Assuming 10L per minute
                 document.getElementById("analytics").innerText = Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L;
             }).catch((error) => {
-                // Do not log Firebase credentials, only log errors
                 console.error("Error fetching analytics:", error);
             });
         }
 
         setInterval(fetchAnalytics, 60000); // Update analytics every minute
         database.ref("/pumpStatus").on("value", updateUI);
+        window.onload = fetchAnalytics;
 
         function updateUI(snapshot) {
             let switchElement = document.getElementById("switch");
             let switchBox = document.querySelector(".switch-box");
             if (snapshot.exists()) {
                 let status = snapshot.val().status;
+                console.log(Firebase status received: ${status});
 
                 if (status === "ON") {
                     switchElement.classList.add("on");
