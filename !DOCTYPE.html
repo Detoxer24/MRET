@@ -11,43 +11,50 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-remote-config.js"></script>
 
     <script>
-        let database, remoteConfig;
-        let totalOnTime = 0, totalWaterUsed = 0, lastOnTimestamp = null;
+        // Firebase Configuration
+       fetch("https://your-server.com/getFirebaseConfig")
+  .then(response => response.json())
+  .then(config => {
+    firebase.initializeApp(config);
+  })
+  .catch(error => console.error("Error fetching Firebase config:", error));
 
-        async function initializeFirebase() {
-            try {
-                // Fetch Firebase Config Securely
-                const response = await fetch("https://your-server.com/getFirebaseConfig");
-                const config = await response.json();
+        const database = firebase.database();
+        const remoteConfig = firebase.remoteConfig();
 
-                // Initialize Firebase
-                firebase.initializeApp(config);
-                database = firebase.database();
-                remoteConfig = firebase.remoteConfig();
+        // Fetch remote config values
+        remoteConfig.settings = {
+            minimumFetchIntervalMillis: 3600000, // Cache for 1 hour
+        };
 
-                remoteConfig.settings = { minimumFetchIntervalMillis: 3600000 };
-                await fetchRemoteConfig(); // Fetch remote password
+        // Function to fetch remote config
+        function fetchRemoteConfig() {
+            remoteConfig.fetchAndActivate()
+                .then(() => {
+                    const pumpControlPassword = remoteConfig.getValue('pump_control_password').asString();
 
-                setInterval(fetchAnalytics, 60000); // Update analytics every 60 sec
-                database.ref("/pumpStatus").on("value", updateUI);
-            } catch (error) {
-                console.error("🔥 Firebase Initialization Error:", error);
-            }
+                    // Store the fetched password securely for control
+                    window.pumpControlPassword = pumpControlPassword;
+                })
+                .catch((error) => {
+                    console.error("Error fetching remote config: ", error); // Only log errors related to fetching config
+                });
         }
 
-        async function fetchRemoteConfig() {
-            try {
-                await remoteConfig.fetchAndActivate();
-                window.pumpControlPassword = remoteConfig.getValue('pump_control_password').asString();
-            } catch (error) {
-                console.error("⚠️ Remote Config Fetch Error:", error);
-            }
-        }
+        // Call fetchRemoteConfig on page load
+        window.onload = function () {
+            fetchRemoteConfig();
+            fetchAnalytics(); // Fetch initial analytics
+        };
+
+        let totalOnTime = 0; // Store total time pump was ON
+        let totalWaterUsed = 0; // Store total water used
+        let lastOnTimestamp = null; // Track the time when the pump was last turned on
 
         function checkPassword() {
-            let password = prompt("Enter password:");
+            let password = prompt("Enter password to access controls:");
             if (password !== window.pumpControlPassword) {
-                alert("❌ Incorrect password! Access denied.");
+                alert("Incorrect password! Access denied.");
                 return false;
             }
             return true;
@@ -62,61 +69,89 @@
             let newStatus = isOn ? "OFF" : "ON";
             let timestamp = Date.now();
 
+            // Instantly update UI
             switchElement.classList.toggle("on");
             switchBox.classList.toggle("on");
 
             if (newStatus === "ON") {
+                // Reset total time and water used when turned on
                 totalOnTime = 0;
                 totalWaterUsed = 0;
-                lastOnTimestamp = timestamp;
+                lastOnTimestamp = timestamp; // Mark the time when it was turned on
             } else {
+                // Calculate total ON time and water used when turned off
                 if (lastOnTimestamp) {
-                    totalOnTime += (timestamp - lastOnTimestamp) / 60000;
-                    totalWaterUsed = totalOnTime * 10;
-                    lastOnTimestamp = null;
+                    totalOnTime += (timestamp - lastOnTimestamp) / 1000 / 60; // Convert to minutes
+                    totalWaterUsed = totalOnTime * 10; // Assuming 10L per minute
+                    lastOnTimestamp = null; // Reset the timestamp after turning off
                 }
             }
 
-            database.ref("/pumpStatus").set({ status: newStatus, timestamp })
-                .catch(error => console.error("❌ Firebase Update Error:", error));
+            // Update Firebase
+            database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).catch((error) => {
+                // Do not log Firebase credentials, only log errors
+                console.error("Error updating Firebase:", error);
+            });
 
+            // Update UI analytics immediately
             updateAnalytics();
         }
 
-        function fetchAnalytics() {
-            let startOfDay = new Date().setHours(0, 0, 0, 0);
-
-            database.ref("/pumpLogs").orderByChild("timestamp").startAt(startOfDay).once("value")
-                .then(snapshot => {
-                    let totalOnTime = 0, lastOnTimestamp = null;
-
-                    snapshot.forEach(entry => {
-                        let data = entry.val();
-                        if (data.status === "ON") lastOnTimestamp = data.timestamp;
-                        else if (data.status === "OFF" && lastOnTimestamp) {
-                            totalOnTime += (data.timestamp - lastOnTimestamp) / 60000;
-                            lastOnTimestamp = null;
-                        }
-                    });
-
-                    document.getElementById("analytics").innerText =
-                        `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${(totalOnTime * 10).toFixed(2)} L`;
-                })
-                .catch(error => console.error("⚠️ Analytics Fetch Error:", error));
+        function logPumpStatus(status, timestamp) {
+            database.ref("/pumpLogs").push({ status: status, timestamp: timestamp });
         }
+
+        function updateAnalytics() {
+            // Display total ON time and water used
+            document.getElementById("analytics").innerText = Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${totalWaterUsed.toFixed(2)} L;
+        }
+
+        function fetchAnalytics() {
+            let now = Date.now();
+            let midnight = new Date();
+            midnight.setHours(0, 0, 0, 0);
+            let startOfDay = midnight.getTime();
+
+            database.ref("/pumpLogs").orderByChild("timestamp").startAt(startOfDay).once("value").then((snapshot) => {
+                let totalOnTime = 0;
+                let lastOnTimestamp = null;
+
+                snapshot.forEach(entry => {
+                    let data = entry.val();
+                    if (data.status === "ON") {
+                        lastOnTimestamp = data.timestamp;
+                    } else if (data.status === "OFF" && lastOnTimestamp) {
+                        totalOnTime += (data.timestamp - lastOnTimestamp) / 1000 / 60; // Convert to minutes
+                        lastOnTimestamp = null;
+                    }
+                });
+
+                let waterUsed = totalOnTime * 10; // Assuming 10L per minute
+                document.getElementById("analytics").innerText = Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L;
+            }).catch((error) => {
+                // Do not log Firebase credentials, only log errors
+                console.error("Error fetching analytics:", error);
+            });
+        }
+
+        setInterval(fetchAnalytics, 60000); // Update analytics every minute
+        database.ref("/pumpStatus").on("value", updateUI);
 
         function updateUI(snapshot) {
             let switchElement = document.getElementById("switch");
             let switchBox = document.querySelector(".switch-box");
-
             if (snapshot.exists()) {
                 let status = snapshot.val().status;
-                switchElement.classList.toggle("on", status === "ON");
-                switchBox.classList.toggle("on", status === "ON");
+
+                if (status === "ON") {
+                    switchElement.classList.add("on");
+                    switchBox.classList.add("on");
+                } else {
+                    switchElement.classList.remove("on");
+                    switchBox.classList.remove("on");
+                }
             }
         }
-
-        window.onload = initializeFirebase;
     </script>
 
     <style>
@@ -135,7 +170,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 63vh;
+            height: 63vh; /* Adjusted to move the switch 2 cm up */
         }
 
         .switch-box {
