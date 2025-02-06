@@ -11,53 +11,41 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-remote-config.js"></script>
 
     <script>
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyCI_jyclRZEKN0dsLRYZ_E5cuZq7024XJI",
-            authDomain: "smart-irrigation-c2dcb.firebaseapp.com",
-            databaseURL: "https://smart-irrigation-c2dcb-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "smart-irrigation-c2dcb",
-            storageBucket: "smart-irrigation-c2dcb.firebasestorage.app",
-            messagingSenderId: "428090389139",
-            appId: "1:428090389139:web:db0c63ecf1860e4e72d366"
-        };
+        // Securely fetch Firebase Config from Server
+        fetch("https://your-server.com/getFirebaseConfig")
+            .then(response => response.json())
+            .then(config => {
+                firebase.initializeApp(config);
+                initializePumpControl();
+            })
+            .catch(error => console.error("Error fetching Firebase config:", error));
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        const remoteConfig = firebase.remoteConfig();
+        let database, remoteConfig;
+        let totalOnTime = 0;
+        let totalWaterUsed = 0;
+        let lastOnTimestamp = null;
 
-        // Fetch remote config values
-        remoteConfig.settings = {
-            minimumFetchIntervalMillis: 3600000, // Cache for 1 hour
-        };
+        function initializePumpControl() {
+            database = firebase.database();
+            remoteConfig = firebase.remoteConfig();
 
-        // Function to fetch remote config
+            remoteConfig.settings = { minimumFetchIntervalMillis: 3600000 };
+
+            fetchRemoteConfig();
+            setInterval(fetchAnalytics, 60000);
+            database.ref("/pumpStatus").on("value", updateUI);
+        }
+
         function fetchRemoteConfig() {
             remoteConfig.fetchAndActivate()
                 .then(() => {
-                    const pumpControlPassword = remoteConfig.getValue('pump_control_password').asString();
-
-                    // Store the fetched password securely for control
-                    window.pumpControlPassword = pumpControlPassword;
+                    window.pumpControlPassword = remoteConfig.getValue('pump_control_password').asString();
                 })
-                .catch((error) => {
-                    console.error("Error fetching remote config: ", error); // Only log errors related to fetching config
-                });
+                .catch(error => console.error("Error fetching remote config:", error));
         }
 
-        // Call fetchRemoteConfig on page load
-        window.onload = function () {
-            fetchRemoteConfig();
-            fetchAnalytics(); // Fetch initial analytics
-        };
-
-        let totalOnTime = 0; // Store total time pump was ON
-        let totalWaterUsed = 0; // Store total water used
-        let lastOnTimestamp = null; // Track the time when the pump was last turned on
-
         function checkPassword() {
-            let password = prompt("Enter password to access controls:");
+            let password = prompt("Enter password:");
             if (password !== window.pumpControlPassword) {
                 alert("Incorrect password! Access denied.");
                 return false;
@@ -74,87 +62,57 @@
             let newStatus = isOn ? "OFF" : "ON";
             let timestamp = Date.now();
 
-            // Instantly update UI
             switchElement.classList.toggle("on");
             switchBox.classList.toggle("on");
 
             if (newStatus === "ON") {
-                // Reset total time and water used when turned on
                 totalOnTime = 0;
                 totalWaterUsed = 0;
-                lastOnTimestamp = timestamp; // Mark the time when it was turned on
+                lastOnTimestamp = timestamp;
             } else {
-                // Calculate total ON time and water used when turned off
                 if (lastOnTimestamp) {
-                    totalOnTime += (timestamp - lastOnTimestamp) / 1000 / 60; // Convert to minutes
-                    totalWaterUsed = totalOnTime * 10; // Assuming 10L per minute
-                    lastOnTimestamp = null; // Reset the timestamp after turning off
+                    totalOnTime += (timestamp - lastOnTimestamp) / 60000;
+                    totalWaterUsed = totalOnTime * 10;
+                    lastOnTimestamp = null;
                 }
             }
 
-            // Update Firebase
-            database.ref("/pumpStatus").set({ status: newStatus, timestamp: timestamp }).catch((error) => {
-                // Do not log Firebase credentials, only log errors
+            database.ref("/pumpStatus").set({ status: newStatus, timestamp }).catch(error => {
                 console.error("Error updating Firebase:", error);
             });
 
-            // Update UI analytics immediately
             updateAnalytics();
-        }
-
-        function logPumpStatus(status, timestamp) {
-            database.ref("/pumpLogs").push({ status: status, timestamp: timestamp });
-        }
-
-        function updateAnalytics() {
-            // Display total ON time and water used
-            document.getElementById("analytics").innerText = `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${totalWaterUsed.toFixed(2)} L`;
         }
 
         function fetchAnalytics() {
             let now = Date.now();
-            let midnight = new Date();
-            midnight.setHours(0, 0, 0, 0);
-            let startOfDay = midnight.getTime();
+            let startOfDay = new Date().setHours(0, 0, 0, 0);
 
-            database.ref("/pumpLogs").orderByChild("timestamp").startAt(startOfDay).once("value").then((snapshot) => {
-                let totalOnTime = 0;
-                let lastOnTimestamp = null;
+            database.ref("/pumpLogs").orderByChild("timestamp").startAt(startOfDay).once("value").then(snapshot => {
+                let totalOnTime = 0, lastOnTimestamp = null;
 
                 snapshot.forEach(entry => {
                     let data = entry.val();
-                    if (data.status === "ON") {
-                        lastOnTimestamp = data.timestamp;
-                    } else if (data.status === "OFF" && lastOnTimestamp) {
-                        totalOnTime += (data.timestamp - lastOnTimestamp) / 1000 / 60; // Convert to minutes
+                    if (data.status === "ON") lastOnTimestamp = data.timestamp;
+                    else if (data.status === "OFF" && lastOnTimestamp) {
+                        totalOnTime += (data.timestamp - lastOnTimestamp) / 60000;
                         lastOnTimestamp = null;
                     }
                 });
 
-                let waterUsed = totalOnTime * 10; // Assuming 10L per minute
-                document.getElementById("analytics").innerText = `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${waterUsed.toFixed(2)} L`;
-            }).catch((error) => {
-                // Do not log Firebase credentials, only log errors
-                console.error("Error fetching analytics:", error);
-            });
+                document.getElementById("analytics").innerText =
+                    `Total ON Time: ${totalOnTime.toFixed(2)} min | Water Used: ${(totalOnTime * 10).toFixed(2)} L`;
+            }).catch(error => console.error("Error fetching analytics:", error));
         }
-
-        setInterval(fetchAnalytics, 60000); // Update analytics every minute
-        database.ref("/pumpStatus").on("value", updateUI);
 
         function updateUI(snapshot) {
             let switchElement = document.getElementById("switch");
             let switchBox = document.querySelector(".switch-box");
+
             if (snapshot.exists()) {
                 let status = snapshot.val().status;
-
-                if (status === "ON") {
-                    switchElement.classList.add("on");
-                    switchBox.classList.add("on");
-                } else {
-                    switchElement.classList.remove("on");
-                    switchBox.classList.remove("on");
-                }
+                switchElement.classList.toggle("on", status === "ON");
+                switchBox.classList.toggle("on", status === "ON");
             }
         }
     </script>
@@ -175,7 +133,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 63vh; /* Adjusted to move the switch 2 cm up */
+            height: 63vh;
         }
 
         .switch-box {
